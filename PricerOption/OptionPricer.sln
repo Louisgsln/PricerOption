@@ -1,0 +1,27 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OptionPricer", "src\OptionPricer\OptionPricer.csproj", "{A70E28E9-1FEE-497B-8BA4-4903E5D430A3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OptionPricer.Tests", "tests\OptionPricer.Tests\OptionPricer.Tests.csproj", "{C4B2E58C-518D-4672-8C84-9D3E9D545B0A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A70E28E9-1FEE-497B-8BA4-4903E5D430A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A70E28E9-1FEE-497B-8BA4-4903E5D430A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A70E28E9-1FEE-497B-8BA4-4903E5D430A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A70E28E9-1FEE-497B-8BA4-4903E5D430A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C4B2E58C-518D-4672-8C84-9D3E9D545B0A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C4B2E58C-518D-4672-8C84-9D3E9D545B0A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C4B2E58C-518D-4672-8C84-9D3E9D545B0A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C4B2E58C-518D-4672-8C84-9D3E9D545B0A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
