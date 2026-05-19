@@ -6,7 +6,6 @@
 
 **OptionPricer** est une application console .NET 8 modulaire et performante dédiée au pricing d'options financières européennes (Call & Put) en utilisant le modèle de **Black-Scholes-Merton (BSM)**. Il permet d'évaluer le prix théorique des contrats, de calculer analytiquement les indicateurs de sensibilité associés (les **Grecques**), et d'estimer la **volatilité implicite** à partir d'un prix de marché observé via une approche hybride robuste (Newton-Raphson avec repli par dichotomie).
 
-Ce projet a été conçu selon des principes d'architecture propre, sans dépendance externe, ce qui en fait un excellent cas d'usage pédagogique et un projet idéal à présenter lors d'entretiens techniques pour des rôles de **Front-Office Developer** ou **Quant Developer junior**.
 
 ---
 
@@ -165,7 +164,7 @@ Bien que le modèle de Black-Scholes soit le socle historique du pricing d'optio
 
 ---
 
-## 📈 Pistes d'Améliorations (Feuille de Route Quant)
+## 📈 Pistes d'Améliorations
 
 Pour transformer ce projet simple en une bibliothèque quantitative industrielle :
 - **Exercice Américain** : Implémenter un modèle d'évaluation par **Arbre Binomial** (ex: Cox-Ross-Rubinstein) ou par simulation **Monte-Carlo** avec l'algorithme des moindres carrés de **Longstaff-Schwartz (LSM)**.
