@@ -32,7 +32,13 @@ namespace OptionPricer
                 Console.Write("Select an option (1-5): ");
                 Console.ForegroundColor = ConsoleColor.White;
 
-                string choice = Console.ReadLine() ?? string.Empty;
+                string? choice = Console.ReadLine();
+                if (choice == null)
+                {
+                    running = false;
+                    break;
+                }
+                choice = choice.Trim();
                 Console.WriteLine();
 
                 switch (choice)
@@ -309,7 +315,10 @@ namespace OptionPricer
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.Write(prompt);
                 Console.ForegroundColor = ConsoleColor.White;
-                string input = Console.ReadLine() ?? string.Empty;
+                string? input = Console.ReadLine();
+                if (input == null)
+                    throw new OperationCanceledException("Console input stream was closed.");
+
                 if (double.TryParse(input, out double result) && validator(result))
                 {
                     return result;
@@ -325,7 +334,10 @@ namespace OptionPricer
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.Write($"{prompt} (default {defaultValue}): ");
             Console.ForegroundColor = ConsoleColor.White;
-            string input = Console.ReadLine() ?? string.Empty;
+            string? input = Console.ReadLine();
+            if (input == null)
+                throw new OperationCanceledException("Console input stream was closed.");
+
             if (string.IsNullOrWhiteSpace(input))
             {
                 return defaultValue;
@@ -342,7 +354,10 @@ namespace OptionPricer
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.Write($"{prompt} (default {defaultValue}): ");
                 Console.ForegroundColor = ConsoleColor.White;
-                input = Console.ReadLine() ?? string.Empty;
+                input = Console.ReadLine();
+                if (input == null)
+                    throw new OperationCanceledException("Console input stream was closed.");
+
                 if (string.IsNullOrWhiteSpace(input))
                 {
                     return defaultValue;
@@ -357,10 +372,14 @@ namespace OptionPricer
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.Write("Option Type (C for Call, P for Put): ");
                 Console.ForegroundColor = ConsoleColor.White;
-                string input = Console.ReadLine()?.Trim().ToUpper() ?? string.Empty;
-                if (input == "C" || input == "CALL")
+                string? input = Console.ReadLine();
+                if (input == null)
+                    throw new OperationCanceledException("Console input stream was closed.");
+
+                string trimmed = input.Trim().ToUpper();
+                if (trimmed == "C" || trimmed == "CALL")
                     return OptionType.Call;
-                if (input == "P" || input == "PUT")
+                if (trimmed == "P" || trimmed == "PUT")
                     return OptionType.Put;
 
                 Console.ForegroundColor = ConsoleColor.Red;
@@ -376,10 +395,14 @@ namespace OptionPricer
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.Write("Option Style (E for European, A for American): ");
                 Console.ForegroundColor = ConsoleColor.White;
-                string input = Console.ReadLine()?.Trim().ToUpper() ?? string.Empty;
-                if (input == "E" || input == "EUROPEAN")
+                string? input = Console.ReadLine();
+                if (input == null)
+                    throw new OperationCanceledException("Console input stream was closed.");
+
+                string trimmed = input.Trim().ToUpper();
+                if (trimmed == "E" || trimmed == "EUROPEAN")
                     return OptionStyle.European;
-                if (input == "A" || input == "AMERICAN")
+                if (trimmed == "A" || trimmed == "AMERICAN")
                     return OptionStyle.American;
 
                 Console.ForegroundColor = ConsoleColor.Red;
@@ -399,12 +422,16 @@ namespace OptionPricer
                 Console.WriteLine("  3. Monte Carlo Simulation");
                 Console.Write("Choice (1-3): ");
                 Console.ForegroundColor = ConsoleColor.White;
-                string input = Console.ReadLine()?.Trim() ?? string.Empty;
-                if (input == "1")
+                string? input = Console.ReadLine();
+                if (input == null)
+                    throw new OperationCanceledException("Console input stream was closed.");
+
+                string trimmed = input.Trim();
+                if (trimmed == "1")
                     return new BlackScholesPricer();
-                if (input == "2")
+                if (trimmed == "2")
                     return new BinomialTreePricer();
-                if (input == "3")
+                if (trimmed == "3")
                     return new MonteCarloPricer();
 
                 Console.ForegroundColor = ConsoleColor.Red;

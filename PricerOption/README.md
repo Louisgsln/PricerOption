@@ -4,7 +4,7 @@
 [![xUnit Tests](https://img.shields.io/badge/Tests-xUnit-green.svg)](https://xunit.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**OptionPricer** est une application console .NET 8 modulaire et performante dédiée au pricing d'options financières européennes (Call & Put) en utilisant le modèle de **Black-Scholes-Merton (BSM)**. Il permet d'évaluer le prix théorique des contrats, de calculer analytiquement les indicateurs de sensibilité associés (les **Grecques**), et d'estimer la **volatilité implicite** à partir d'un prix de marché observé via une approche hybride robuste (Newton-Raphson avec repli par dichotomie).
+**OptionPricer** est une application console .NET 8 modulaire et performante dédiée au pricing d'options financières vanilla (**européennes** et **américaines**). Elle implémente trois grands moteurs de pricing reconnus de la finance quantitative, calcule analytiquement les indicateurs de sensibilité associés (les **Grecques**), et résout la **volatilité implicite** à partir d'un prix de marché observé via une approche hybride robuste.
 
 Ce projet a été conçu selon des principes d'architecture propre, sans dépendance externe, ce qui en fait un excellent cas d'usage pédagogique et un projet idéal à présenter lors d'entretiens techniques pour des rôles de **Front-Office Developer** ou **Quant Developer junior**.
 
@@ -12,57 +12,57 @@ Ce projet a été conçu selon des principes d'architecture propre, sans dépend
 
 ## 🚀 Fonctionnalités
 
-1. **Modélisation de Contrats d'Options** (`OptionContract`) : Modèle de données robuste encapsulant les paramètres fondamentaux avec validation stricte à l'instanciation.
-2. **Pricing Black-Scholes-Merton** (`BlackScholesPricer`) : Évaluation analytique rigoureuse gérant le rendement en dividende continu ($q$).
-3. **Calculateur de Grecques** (`GreeksCalculator`) : Calcul exact de la sensibilité du prix de l'option par rapport aux paramètres sous-jacents (Delta, Gamma, Vega, Theta, Rho).
+1. **Modélisation de Contrats d'Options** (`OptionContract`) : Modèle de données robuste encapsulant les paramètres fondamentaux ($S, K, T, r, \sigma, q$) avec support des styles **Européen** et **Américain**.
+2. **Multiples Moteurs de Pricing** :
+   - **Moteur Black-Scholes-Merton** (`BlackScholesPricer`) : Évaluation analytique exacte pour les options européennes avec dividendes continus.
+   - **Moteur Binomial (Cox-Ross-Rubinstein)** (`BinomialTreePricer`) : Modèle en treillis pour évaluer les options européennes et américaines (avec détection optimale de l'exercice anticipé à chaque nœud).
+   - **Moteur Monte Carlo** (`MonteCarloPricer`) : Simulation de trajectoires d'actifs (mouvement brownien géométrique) avec technique de réduction de variance (variables antithétiques) et calcul d'erreur standard (Standard Error).
+3. **Calculateur de Grecques** (`GreeksCalculator`) : Calcul exact de la sensibilité du prix de l'option par rapport aux paramètres sous-jacents (Delta, Gamma, Vega, Theta, Rho) pour le style européen.
 4. **Solveur de Volatilité Implicite** (`ImpliedVolatilitySolver`) :
    - Méthode principale rapide de **Newton-Raphson**.
-   - Algorithme de repli (fallback) par **dichotomie (Bisection)** si les conditions de convergence ou de bornes ne sont pas respectées.
-5. **Console Interactive** : Une interface utilisateur en ligne de commande intuitive, propre et colorée avec validation de saisie de données.
-6. **Scénario d'Exemple** : Un mode démonstration préconfiguré exécutant l'évaluation d'une option classique pour valider instantanément les calculs du moteur quantitatif.
+   - Algorithme de repli (fallback) par **dichotomie (Bisection)** si les conditions de convergence ne sont pas respectées.
+5. **Console Interactive** : Interface utilisateur en ligne de commande intuitive, propre et colorée avec détection de redirection pour la robustesse (CI/CD).
+6. **Comparateur de Modèles (Scénario d'Exemple)** : Mode démonstration préconfiguré qui price une option via les trois modèles simultanément et quantifie le **Premium d'exercice anticipé américain**.
 
 ---
 
 ## 📐 Formules Mathématiques Utilisées
 
-### 1. Pricing (Black-Scholes-Merton)
+### 1. Formule Fermée (Black-Scholes-Merton)
 
-Pour un sous-jacent de prix actuel $S$, un strike $K$, un taux d'intérêt sans risque $r$, un rendement de dividende continu $q$, une maturité $T$, et une volatilité annualized $\sigma$ :
+Pour un sous-jacent $S$, un strike $K$, un taux sans risque $r$, un dividende continu $q$, une maturité $T$, et une volatilité $\sigma$ :
 
 $$d_1 = \frac{\ln(S / K) + \left(r - q + \frac{\sigma^2}{2}\right) T}{\sigma \sqrt{T}}$$
 $$d_2 = d_1 - \sigma \sqrt{T}$$
 
-Le prix théorique est alors calculé par :
-- **Call Price** : 
-  $$C = S e^{-q T} N(d_1) - K e^{-r T} N(d_2)$$
-- **Put Price** : 
-  $$P = K e^{-r T} N(-d_2) - S e^{-q T} N(-d_1)$$
+Le prix théorique européen est calculé par :
+- **Call Price** : $C = S e^{-q T} N(d_1) - K e^{-r T} N(d_2)$
+- **Put Price** : $P = K e^{-r T} N(-d_2) - S e^{-q T} N(-d_1)$
 
-Où $N(x)$ représente la fonction de répartition de la loi normale standard cumulative (calculée de façon pure C# via l'approximation polynomiale hautement précise d'Abramowitz & Stegun avec une erreur maximale de $\pm 7.5 \times 10^{-8}$).
+*Note : $N(x)$ représente la fonction de répartition de la loi normale standard cumulative, calculée via l'approximation polynomiale hautement précise d'Abramowitz & Stegun.*
 
-### 2. Les Grecques
+### 2. Arbre Binomial (Cox-Ross-Rubinstein)
 
-Les indicateurs de sensibilité analytiques (Grecques) sont calculés ainsi :
+L'arbre modélise l'évolution de l'actif par étapes de temps $\Delta t = T/N$ avec des facteurs de hausse ($u$) et de baisse ($d$) :
 
-| Grecque | Formule Call | Formule Put | Expression technique |
-| :--- | :--- | :--- | :--- |
-| **Delta ($\Delta$)** | $e^{-q T} N(d_1)$ | $-e^{-q T} N(-d_1)$ | Sensibilité brute au sous-jacent |
-| **Gamma ($\Gamma$)** | $\frac{e^{-q T} \phi(d_1)}{S \sigma \sqrt{T}}$ | $\frac{e^{-q T} \phi(d_1)}{S \sigma \sqrt{T}}$ | Sensibilité de Delta au sous-jacent |
-| **Vega ($\mathcal{V}$)** | $\frac{S e^{-q T} \phi(d_1) \sqrt{T}}{100}$ | $\frac{S e^{-q T} \phi(d_1) \sqrt{T}}{100}$ | Sensibilité à la volatilité (pour 1%) |
-| **Theta ($\Theta$)** | $\frac{-\frac{S \sigma e^{-q T} \phi(d_1)}{2 \sqrt{T}} + q S e^{-q T} N(d_1) - r K e^{-r T} N(d_2)}{365}$ | $\frac{-\frac{S \sigma e^{-q T} \phi(d_1)}{2 \sqrt{T}} - q S e^{-q T} N(-d_1) + r K e^{-r T} N(-d_2)}{365}$ | Sensibilité au temps (par jour calendaire) |
-| **Rho ($\rho$)** | $\frac{K T e^{-r T} N(d_2)}{100}$ | $\frac{-K T e^{-r T} N(-d_2)}{100}$ | Sensibilité aux taux d'intérêt (pour 1%) |
+$$u = e^{\sigma \sqrt{\Delta t}}, \quad d = e^{-\sigma \sqrt{\Delta t}} = \frac{1}{u}$$
+$$p = \frac{e^{(r - q)\Delta t} - d}{u - d}$$
 
-*Note : $\phi(x) = \frac{1}{\sqrt{2\pi}} e^{-\frac{x^2}{2}}$ est la fonction de densité de probabilité (PDF) normale standard.*
+À chaque étape $i$ (de l'échéance vers le début) et chaque nœud $j$ (nombre de hausses) :
+- **Pour le style Européen** :
+  $$V_{i, j} = e^{-r \Delta t} \left( p V_{i+1, j+1} + (1-p) V_{i+1, j} \right)$$
+- **Pour le style Américain** (vérification de l'exercice anticipé) :
+  $$V_{i, j} = \max\left(\text{Payoff}(S_{i, j}), e^{-r \Delta t} \left( p V_{i+1, j+1} + (1-p) V_{i+1, j} \right)\right)$$
 
-### 3. Volatilité Implicite
+### 3. Simulation de Monte Carlo
 
-Le solveur recherche la racine $\sigma$ de l'équation :
-$$f(\sigma) = \text{Price}(\sigma) - P_{\text{marché}} = 0$$
+Simule $M$ trajectoires de l'actif sous la probabilité risque-neutre à l'aide de variables normales $Z_k \sim N(0, 1)$ générées par la transformation de Box-Muller :
 
-L'approximation de Newton-Raphson itère selon :
-$$\sigma_{n+1} = \sigma_n - \frac{f(\sigma_n)}{f'(\sigma_n)} = \sigma_n - \frac{\text{Price}(\sigma_n) - P_{\text{marché}}}{\text{Vega}_{\text{annuelle}}(\sigma_n)}$$
+$$S_T^{(k)} = S_0 \exp\left(\left(r - q - \frac{\sigma^2}{2}\right)T + \sigma \sqrt{T} Z_k\right)$$
 
-Si $\text{Vega}$ devient trop faible ($< 10^{-7}$) ou si $\sigma_{n+1}$ sort des limites physiquement acceptables $[0.01\%, 500\%]$, l'algorithme bascule automatiquement vers la méthode robuste de la **dichotomie (Bisection)** pour garantir la convergence sous réserve que le prix de marché respecte les bornes d'arbitrage.
+Pour réduire la variance, la méthode des **variables antithétiques** est employée en doublant les trajectoires simulées via $-Z_k$. Le prix estimé est la moyenne actualisée des payoffs, et l'erreur type (Standard Error) de l'estimation est :
+
+$$\text{SE} = \frac{\text{StDev}(\text{Payoffs})}{\sqrt{2M}}$$
 
 ---
 
@@ -80,10 +80,13 @@ OptionPricer/
 │       ├── Program.cs         # Point d'entrée de l'application console
 │       ├── Models/
 │       │   ├── OptionContract.cs
+│       │   ├── OptionStyle.cs  # [NEW] Enum European / American
 │       │   └── OptionType.cs
 │       ├── Pricing/
+│       │   ├── IPricer.cs
 │       │   ├── BlackScholesPricer.cs
-│       │   └── IPricer.cs
+│       │   ├── BinomialTreePricer.cs # [NEW] Modèle de treillis CRR
+│       │   └── MonteCarloPricer.cs   # [NEW] Simulateur stochastique
 │       ├── Greeks/
 │       │   └── GreeksCalculator.cs
 │       ├── Math/
@@ -96,7 +99,9 @@ OptionPricer/
         ├── OptionPricer.Tests.csproj
         ├── BlackScholesPricerTests.cs
         ├── GreeksCalculatorTests.cs
-        └── ImpliedVolatilitySolverTests.cs
+        ├── ImpliedVolatilitySolverTests.cs
+        ├── BinomialTreePricerTests.cs # [NEW] Tests de convergence et d'exercice anticipé
+        └── MonteCarloPricerTests.cs   # [NEW] Tests de convergence statistique (Standard Error)
 ```
 
 ---
@@ -104,72 +109,57 @@ OptionPricer/
 ## 🛠️ Instructions de Lancement
 
 ### Prérequis
-- [.NET SDK 8.0](https://dotnet.microsoft.com/download/dotnet/8.0) installé sur votre machine.
+- [.NET SDK 8.0](https://dotnet.microsoft.com/download/dotnet/8.0) installé.
 
-### Cloner et compiler le projet
-
-```bash
-# Compiler la solution
-dotnet build OptionPricer.sln
-```
-
-### Lancer l'application console
+### Compilation et Tests
 
 ```bash
-# Lancer le projet console interactif
-dotnet run --project src/OptionPricer/OptionPricer.csproj
-```
+# Restaurer et compiler la solution
+dotnet build -c Release OptionPricer.sln
 
-### Lancer la suite de tests
-
-```bash
-# Exécuter les tests unitaires avec xUnit
+# Exécuter l'ensemble des tests unitaires
 dotnet test OptionPricer.sln
 ```
 
----
+### Lancement de l'application
 
-## 📋 Exemple de Sortie Console (Sample Scenario)
-
-Lors de la sélection de l'option `4. Run Sample Scenario` dans l'application, voici le rendu console attendu :
-
-```text
---- Running Sample Scenario ---
-Parameters:
-  Spot = 100
-  Strike = 100
-  Maturity = 1.0 Year
-  Risk-free rate = 5% (0.05)
-  Volatility = 20% (0.20)
-  Dividend Yield = 0%
-  Option Type = Call
-
->>> Scenario Results <<<
-Price         : 10.450580 (Expected: ~10.4506)
-Delta         : 0.636831 (Expected: ~0.6368)
-Gamma         : 0.018762 (Expected: ~0.0188)
-Vega (1%)     : 0.375240 (Expected: ~0.3752)
-Theta (1 day) : -0.017573 (Expected: ~-0.0176)
-Rho (1%)      : 0.532321 (Expected: ~0.5323)
+```bash
+dotnet run --project src/OptionPricer/OptionPricer.csproj
 ```
 
 ---
 
-## ⚠️ Limites du Modèle Black-Scholes
+## 📋 Rendu de la Sortie Console (Mode Comparatif)
 
-Bien que le modèle de Black-Scholes soit le socle historique du pricing d'options, il comporte des hypothèses restrictives souvent contredites par la réalité des marchés (stylized facts) :
-1. **Volatilité Constante** : Le modèle assume que la volatilité $\sigma$ du sous-jacent est constante dans le temps et identique pour tous les strikes, alors que les marchés affichent un **sourire/sourire déformé de volatilité (volatility smile/skew)**.
-2. **Distribution Log-normale** : Le modèle présuppose des rendements gaussiens sans sauts. En réalité, les distributions empiriques de rendements présentent des queues épaisses (fat tails) et un pic plus prononcé (leucokurticité).
-3. **Maturité Européenne Exclusive** : Il ne permet pas d'évaluer la possibilité d'exercice anticipé propre aux options de style américain.
-4. **Taux sans risque constant** : Dans le modèle classique, $r$ est supposé déterministe et constant sur la durée de vie du contrat, ce qui fausse les valorisations à très longue maturité.
+Lors de l'exécution du scénario de démonstration (choix `4` dans le menu), l'application réalise un benchmark croisé des modèles et met en évidence la prime américaine :
+
+```text
+--- Running Sample Scenario (Comparison & American Premium) ---
+Base Parameters (European Call):
+  Spot = 100, Strike = 100, Maturity = 1.0 Year, Rate = 5%, Vol = 20%, Div = 0%
+
+>>> European Call Pricing Comparison <<<
+  Pricing Model                  | Price      | Difference vs BSM 
+--------------------------------------------------------------------
+  Black-Scholes (Analytical)     | 10,450576  | Benchmark         
+  Binomial Tree (CRR, 200 steps) | 10,440591  |          -0,009984
+  Monte Carlo (100k paths)       | 10,464289  |           0,013714 (SE: ±0,046585)
+
+American Early Exercise Premium Demonstration:
+  Put Parameters: Spot = 100, Strike = 100, Maturity = 1.0 Year, Rate = 5%, Vol = 20%, Div = 0%
+
+>>> American Put Premium Results <<<
+  European Put Price (Black-Scholes) : 5,573518
+  American Put Price (Binomial CRR)  : 6,086383
+  American Early Exercise Premium    : 0,512865 (9,20 %)
+```
 
 ---
 
 ## 📈 Pistes d'Améliorations (Feuille de Route Quant)
 
-Pour transformer ce projet simple en une bibliothèque quantitative industrielle :
-- **Exercice Américain** : Implémenter un modèle d'évaluation par **Arbre Binomial** (ex: Cox-Ross-Rubinstein) ou par simulation **Monte-Carlo** avec l'algorithme des moindres carrés de **Longstaff-Schwartz (LSM)**.
-- **Surface de Volatilité** : Modéliser une surface locale de volatilité (modèle de Dupire) ou interpoler la volatilité implicite via un modèle stochastique (SABR, Heston) à partir des prix du marché.
-- **Calibration** : Développer un module de calibration pour ajuster les paramètres de modèles complexes (comme Heston) sur une grille de prix de marché en utilisant l'algorithme de Levenberg-Marquardt.
-- **Interface Web API** : Envelopper ce moteur de calcul dans une **API ASP.NET Core** pour fournir des endpoints RESTful de pricing rapides.
-- **Export de Données** : Ajouter une fonctionnalité d'export de rapports d'évaluation et de sensibilités au format CSV/Excel.
+Pour étendre davantage ce moteur quantitatif :
+- **Simulation d'Options Américaines par Monte-Carlo** : Implémenter l'algorithme des moindres carrés de **Longstaff-Schwartz (LSM)**.
+- **Modélisation de Volatilité Stochastique** : Intégrer un modèle de type **Heston** pour capter le sourire de volatilité.
+- **Options Exotiques** : Ajouter des pricers pour les options barrières, asiatiques ou lookback en étendant le moteur de Monte-Carlo.
+- **Développement d'une API Web** : Exposer le moteur sous forme de micro-service via ASP.NET Core Minimal APIs.
