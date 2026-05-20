@@ -66,14 +66,28 @@ namespace OptionPricer
                 {
                     Console.ForegroundColor = ConsoleColor.DarkGray;
                     Console.WriteLine("\nPress any key to return to the main menu...");
-                    Console.ReadKey();
+                    if (!Console.IsInputRedirected)
+                    {
+                        Console.ReadKey();
+                    }
+                    else
+                    {
+                        Console.ReadLine();
+                    }
                 }
             }
         }
 
         static void DisplayHeader()
         {
-            Console.Clear();
+            try
+            {
+                Console.Clear();
+            }
+            catch (System.IO.IOException)
+            {
+                // Suppress error when run in redirected/non-interactive consoles
+            }
             Console.ForegroundColor = ConsoleColor.DarkCyan;
             Console.WriteLine(@"
    ____        _   _             _____      _                 
@@ -86,7 +100,7 @@ namespace OptionPricer
         |_|                                                   
 ");
             Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine("   European Option Pricing & Analytics Engine (.NET 8)");
+            Console.WriteLine("   Option Pricing & Analytics Engine (.NET 8)");
             Console.WriteLine();
             Console.ResetColor();
         }
@@ -94,9 +108,10 @@ namespace OptionPricer
         static void PriceOptionMenu()
         {
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("--- Price European Option ---");
+            Console.WriteLine("--- Price Option ---");
             Console.ResetColor();
 
+            var style = ReadOptionStyle();
             var type = ReadOptionType();
             double spot = ReadDouble("Spot Price (S > 0): ", s => s > 0, "Spot price must be strictly positive.");
             double strike = ReadDouble("Strike Price (K > 0): ", k => k > 0, "Strike price must be strictly positive.");
@@ -107,13 +122,19 @@ namespace OptionPricer
 
             try
             {
-                var contract = new OptionContract(spot, strike, maturity, rate, vol, div, type);
-                var pricer = new BlackScholesPricer();
+                var contract = new OptionContract(spot, strike, maturity, rate, vol, div, type, style);
+                var pricer = ReadPricingEngine();
                 double price = pricer.Price(contract);
 
                 Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($">>> {type} Price: {price:F6}");
+                Console.Write($">>> {style} {type} Price using {pricer.GetType().Name}: {price:F6}");
+                
+                if (pricer is MonteCarloPricer mcPricer)
+                {
+                    Console.Write($" (Std Error: ±{mcPricer.LastStandardError:F6})");
+                }
+                Console.WriteLine();
                 Console.ResetColor();
             }
             catch (Exception ex)
@@ -130,6 +151,7 @@ namespace OptionPricer
             Console.WriteLine("--- Calculate Option Greeks ---");
             Console.ResetColor();
 
+            Console.WriteLine("Note: Greeks are computed using analytical formulas and require European style.");
             var type = ReadOptionType();
             double spot = ReadDouble("Spot Price (S > 0): ", s => s > 0, "Spot price must be strictly positive.");
             double strike = ReadDouble("Strike Price (K > 0): ", k => k > 0, "Strike price must be strictly positive.");
@@ -140,14 +162,14 @@ namespace OptionPricer
 
             try
             {
-                var contract = new OptionContract(spot, strike, maturity, rate, vol, div, type);
+                var contract = new OptionContract(spot, strike, maturity, rate, vol, div, type, OptionStyle.European);
                 var greeks = GreeksCalculator.CalculateAll(contract);
                 var pricer = new BlackScholesPricer();
                 double price = pricer.Price(contract);
 
                 Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine(">>> Results & Greeks <<<");
+                Console.WriteLine(">>> Results & Analytical Greeks <<<");
                 Console.ForegroundColor = ConsoleColor.White;
                 Console.WriteLine($"Option Price : {price:F6}");
                 Console.WriteLine($"Delta        : {greeks.Delta:F6}");
@@ -171,6 +193,7 @@ namespace OptionPricer
             Console.WriteLine("--- Solve Implied Volatility ---");
             Console.ResetColor();
 
+            Console.WriteLine("Note: Implied volatility solving is supported for European style options.");
             var type = ReadOptionType();
             double spot = ReadDouble("Spot Price (S > 0): ", s => s > 0, "Spot price must be strictly positive.");
             double strike = ReadDouble("Strike Price (K > 0): ", k => k > 0, "Strike price must be strictly positive.");
@@ -181,10 +204,8 @@ namespace OptionPricer
 
             try
             {
-                // We construct the contract with a dummy volatility (e.g. 0.20) because the solver
-                // uses WithVolatility to evaluate pricing at different volatility guesses.
                 var dummyVol = 0.20;
-                var contract = new OptionContract(spot, strike, maturity, rate, dummyVol, div, type);
+                var contract = new OptionContract(spot, strike, maturity, rate, dummyVol, div, type, OptionStyle.European);
 
                 var solver = new ImpliedVolatilitySolver();
                 var result = solver.Solve(contract, mktPrice);
@@ -220,34 +241,55 @@ namespace OptionPricer
         static void RunSampleScenario()
         {
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("--- Running Sample Scenario ---");
+            Console.WriteLine("--- Running Sample Scenario (Comparison & American Premium) ---");
             Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine("Parameters:");
-            Console.WriteLine("  Spot = 100");
-            Console.WriteLine("  Strike = 100");
-            Console.WriteLine("  Maturity = 1.0 Year");
-            Console.WriteLine("  Risk-free rate = 5% (0.05)");
-            Console.WriteLine("  Volatility = 20% (0.20)");
-            Console.WriteLine("  Dividend Yield = 0%");
-            Console.WriteLine("  Option Type = Call");
+            Console.WriteLine("Base Parameters (European Call):");
+            Console.WriteLine("  Spot = 100, Strike = 100, Maturity = 1.0 Year, Rate = 5%, Vol = 20%, Div = 0%");
             Console.WriteLine();
 
             try
             {
-                var contract = new OptionContract(100, 100, 1.0, 0.05, 0.20, 0.0, OptionType.Call);
-                var pricer = new BlackScholesPricer();
-                double price = pricer.Price(contract);
-                var greeks = GreeksCalculator.CalculateAll(contract);
+                // 1. Compare European pricing across models
+                var euroCall = new OptionContract(100, 100, 1.0, 0.05, 0.20, 0.0, OptionType.Call, OptionStyle.European);
+                
+                var bsPricer = new BlackScholesPricer();
+                var binPricer = new BinomialTreePricer(200);
+                var mcPricer = new MonteCarloPricer(100000, 42);
+
+                double bsPrice = bsPricer.Price(euroCall);
+                double binPrice = binPricer.Price(euroCall);
+                double mcPrice = mcPricer.Price(euroCall);
+                double mcErr = mcPricer.LastStandardError;
 
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine(">>> Scenario Results <<<");
+                Console.WriteLine(">>> European Call Pricing Comparison <<<");
                 Console.ForegroundColor = ConsoleColor.White;
-                Console.WriteLine($"Price         : {price:F6} (Expected: ~10.4506)");
-                Console.WriteLine($"Delta         : {greeks.Delta:F6} (Expected: ~0.6368)");
-                Console.WriteLine($"Gamma         : {greeks.Gamma:F6} (Expected: ~0.0188)");
-                Console.WriteLine($"Vega (1%)     : {greeks.Vega:F6} (Expected: ~0.3752)");
-                Console.WriteLine($"Theta (1 day) : {greeks.Theta:F6} (Expected: ~-0.0176)");
-                Console.WriteLine($"Rho (1%)      : {greeks.Rho:F6} (Expected: ~0.5323)");
+                Console.WriteLine($"  {"Pricing Model",-30} | {"Price",-10} | {"Difference vs BSM",-18}");
+                Console.WriteLine(new string('-', 68));
+                Console.WriteLine($"  {"Black-Scholes (Analytical)",-30} | {bsPrice,-10:F6} | {"Benchmark",-18}");
+                Console.WriteLine($"  {"Binomial Tree (CRR, 200 steps)",-30} | {binPrice,-10:F6} | {binPrice - bsPrice,18:F6}");
+                Console.WriteLine($"  {"Monte Carlo (100k paths)",-30} | {mcPrice,-10:F6} | {mcPrice - bsPrice,18:F6} (SE: ±{mcErr:F6})");
+                Console.WriteLine();
+
+                // 2. American Premium on Put option (where early exercise is prominent)
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("American Early Exercise Premium Demonstration:");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine("  Put Parameters: Spot = 100, Strike = 100, Maturity = 1.0 Year, Rate = 5%, Vol = 20%, Div = 0%");
+                
+                var euroPut = new OptionContract(100, 100, 1.0, 0.05, 0.20, 0.0, OptionType.Put, OptionStyle.European);
+                var amerPut = new OptionContract(100, 100, 1.0, 0.05, 0.20, 0.0, OptionType.Put, OptionStyle.American);
+
+                double priceEuroPut = bsPricer.Price(euroPut);
+                double priceAmerPut = binPricer.Price(amerPut);
+                double premium = priceAmerPut - priceEuroPut;
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("\n>>> American Put Premium Results <<<");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine($"  European Put Price (Black-Scholes) : {priceEuroPut:F6}");
+                Console.WriteLine($"  American Put Price (Binomial CRR)  : {priceAmerPut:F6}");
+                Console.WriteLine($"  American Early Exercise Premium    : {premium:F6} ({premium / priceEuroPut:P2})");
                 Console.ResetColor();
             }
             catch (Exception ex)
@@ -323,6 +365,50 @@ namespace OptionPricer
 
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("Invalid option type. Please enter 'C' or 'P'.");
+                Console.ResetColor();
+            }
+        }
+
+        static OptionStyle ReadOptionStyle()
+        {
+            while (true)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.Write("Option Style (E for European, A for American): ");
+                Console.ForegroundColor = ConsoleColor.White;
+                string input = Console.ReadLine()?.Trim().ToUpper() ?? string.Empty;
+                if (input == "E" || input == "EUROPEAN")
+                    return OptionStyle.European;
+                if (input == "A" || input == "AMERICAN")
+                    return OptionStyle.American;
+
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Invalid option style. Please enter 'E' or 'A'.");
+                Console.ResetColor();
+            }
+        }
+
+        static IPricer ReadPricingEngine()
+        {
+            while (true)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("Select Pricing Model:");
+                Console.WriteLine("  1. Black-Scholes-Merton (Analytical)");
+                Console.WriteLine("  2. Binomial Tree (Cox-Ross-Rubinstein)");
+                Console.WriteLine("  3. Monte Carlo Simulation");
+                Console.Write("Choice (1-3): ");
+                Console.ForegroundColor = ConsoleColor.White;
+                string input = Console.ReadLine()?.Trim() ?? string.Empty;
+                if (input == "1")
+                    return new BlackScholesPricer();
+                if (input == "2")
+                    return new BinomialTreePricer();
+                if (input == "3")
+                    return new MonteCarloPricer();
+
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Invalid pricing model choice. Please select 1, 2, or 3.");
                 Console.ResetColor();
             }
         }

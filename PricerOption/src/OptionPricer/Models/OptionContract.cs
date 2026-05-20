@@ -14,6 +14,7 @@ namespace OptionPricer.Models
         public double Volatility { get; }
         public double DividendYield { get; }
         public OptionType OptionType { get; }
+        public OptionStyle OptionStyle { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="OptionContract"/> class.
@@ -25,6 +26,7 @@ namespace OptionPricer.Models
         /// <param name="volatility">Annualized volatility of the underlying asset (must be > 0).</param>
         /// <param name="dividendYield">Annualized dividend yield of the underlying asset (must be >= 0).</param>
         /// <param name="optionType">The option type: Call or Put.</param>
+        /// <param name="optionStyle">The option execution style: European or American.</param>
         /// <exception cref="ArgumentException">Thrown when validation checks fail.</exception>
         public OptionContract(
             double spot,
@@ -33,7 +35,8 @@ namespace OptionPricer.Models
             double riskFreeRate,
             double volatility,
             double dividendYield = 0.0,
-            OptionType optionType = OptionType.Call)
+            OptionType optionType = OptionType.Call,
+            OptionStyle optionStyle = OptionStyle.European)
         {
             if (spot <= 0)
                 throw new ArgumentException("Spot price must be strictly positive.", nameof(spot));
@@ -53,6 +56,7 @@ namespace OptionPricer.Models
             Volatility = volatility;
             DividendYield = dividendYield;
             OptionType = optionType;
+            OptionStyle = optionStyle;
         }
 
         /// <summary>
@@ -68,7 +72,8 @@ namespace OptionPricer.Models
                 RiskFreeRate,
                 newVolatility,
                 DividendYield,
-                OptionType
+                OptionType,
+                OptionStyle
             );
         }
     }

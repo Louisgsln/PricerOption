@@ -21,6 +21,9 @@ namespace OptionPricer.Pricing
             if (option == null)
                 throw new ArgumentNullException(nameof(option));
 
+            if (option.OptionStyle == OptionStyle.American)
+                throw new NotSupportedException("Black-Scholes analytical model does not support American style options.");
+
             double S = option.Spot;
             double K = option.Strike;
             double T = option.MaturityInYears;
